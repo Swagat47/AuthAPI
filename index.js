@@ -7,9 +7,9 @@ const app = express();
 
 //DATABASE
 const URI = process.env.MONGODB_URL;
-console.log(URI);
+// console.log(URI);
 mongoose
-  .connect(URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .connect(URI)
   .then(() => {
     console.log("Connected to MongoDB!!!");
   })
@@ -21,9 +21,8 @@ mongoose
 app.use(express.json());
 
 //ROUTES
-app.get("/", (req, res) => {
-  res.send("Hello World");
-});
+const userRouter = require("./Routes/userRoutes");
+app.use("/api", userRouter);
 
 //SERVER LISTENING
 const PORT = process.env.PORT || 4000;
