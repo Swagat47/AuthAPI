@@ -1,5 +1,17 @@
 const User = require("../Models/userModel");
 
+function checkIfDatePresent({date, slots}) {
+  
+  for(let i=0; i<slots.length; i++) {
+    const slotdate = slots[i].date.split(",")[0];
+    // console.log(slotdate);
+    if( slotdate === date) {
+      return false;
+    }
+  }
+  return true;
+}
+  
 exports.availableSlots = async (req, res) => {
   let { month, year } = req.body;
 
@@ -42,16 +54,45 @@ exports.availableSlots = async (req, res) => {
     const currentDate = new Date(year, month - 1, day);
     const dayOfWeek = currentDate.getDay();
     const dateString = currentDate.toISOString().split("T")[0];
-    if (dayOfWeek === 4) {
+    if (dayOfWeek === 5) {
       // Thursday (0-based index)
-      if (!deanCalendar.includes(dateString))
+      if (checkIfDatePresent({date: dateString, slots: deanCalendar}))
         freeSlots.push(`${dateString}, Thursday`);
-    } else if (dayOfWeek === 5) {
+    } 
+    else if (dayOfWeek === 6) {
       // Friday (0-based index)
-      if (!deanCalendar.includes(dateString))
+      if (checkIfDatePresent({date: dateString, slots: deanCalendar}))
         freeSlots.push(`${dateString}, Friday`);
     }
   }
 
   return res.json(freeSlots);
+};
+
+exports.bookSlot = async (req, res) => {
+    const { date } = req.body;
+    const dean = await User.findOne({ role: "dean" });
+    const student = await User.findById(req.params.id);
+
+    const deanCalendar = dean.bookedSlots;
+    const datekey = date.split("T")[0];
+    if (deanCalendar.includes(date)) {
+        return res.status(400).json({
+            error: "Slot is already booked",
+        });
+    }
+    
+    else{
+        dean.bookedSlots.push({
+            "date":date,
+            "student":student.name,
+            "studentId":student.universityId,
+        });
+        student.bookedSlots.push({"date":date});
+        await dean.save();
+        await student.save();
+        return res.json({
+            message: "Slot booked successfully",
+        });
+    }
 };
