@@ -1,5 +1,5 @@
 const User = require("../Models/userModel");
-
+const jwt = require("jsonwebtoken");
 exports.registerUser = async (req, res) => {
   try {
     const { name, universityID, password, role } = req.body;
@@ -22,26 +22,30 @@ exports.registerUser = async (req, res) => {
 };
 
 exports.loginUser = async (req, res) => {
-    const { universityID, password } = req.body;
+  const { universityID, password } = req.body;
 
-    if(!universityID || !password){
-        return res.status(400).json({msg: "Not all fields have been entered."});
-    }
-    const user = await User.findOne({ universityID, password });
-    if(!user){
-        return res.status(400).json({msg: "No account with this university ID has been registered."});
-    }
-    else{
-        return res.json({
-            status: "success",
-            user: {
-                id: user._id,
-                name: user.name,
-                universityID: user.universityID,
-                role: user.role
-            }
-        });
-    }
+  if (!universityID || !password) {
+    return res.status(400).json({ msg: "Not all fields have been entered." });
+  }
+  const user = await User.findOne({ universityID, password });
+  const payload = {
+    id: user._id,
+    name: user.name,
+    universityID: user.universityID,
+    role: user.role
+  };
+  if (!user) {
+    return res.status(400).json({ msg: "No account with this university ID has been registered." });
+  }
+
+  else {
+    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" }, (err, token) => {
+      if (err) throw err;
+      return res.json({
+        token,
+      });
+    });
+  }
 };
 
 

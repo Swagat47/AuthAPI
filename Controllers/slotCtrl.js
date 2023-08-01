@@ -4,7 +4,6 @@ function checkIfDatePresent({date, slots}) {
   
   for(let i=0; i<slots.length; i++) {
     const slotdate = slots[i].date.split(",")[0];
-    // console.log(slotdate);
     if( slotdate === date) {
       return false;
     }
@@ -72,7 +71,7 @@ exports.availableSlots = async (req, res) => {
 exports.bookSlot = async (req, res) => {
     const { date } = req.body;
     const dean = await User.findOne({ role: "dean" });
-    const student = await User.findById(req.params.id);
+    const student = await User.findById(req.user.id);
 
     const deanCalendar = dean.bookedSlots;
     const datekey = date.split("T")[0];
@@ -86,7 +85,7 @@ exports.bookSlot = async (req, res) => {
         dean.bookedSlots.push({
             "date":date,
             "student":student.name,
-            "studentId":student.universityId,
+            "studentId":student.universityID,
         });
         student.bookedSlots.push({"date":date});
         await dean.save();
