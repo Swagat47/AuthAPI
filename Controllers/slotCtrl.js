@@ -52,6 +52,8 @@ exports.availableSlots = async (req, res) => {
   for (let day = startdate; day <= lastDayOfMonth; day++) {
     const currentDate = new Date(year, month - 1, day);
     const dayOfWeek = currentDate.getDay();
+    
+    //currentdate format if 2021-05-20T00:00:00.000Z so we split it to get the date
     const dateString = currentDate.toISOString().split("T")[0];
     if (dayOfWeek === 5) {
       // Thursday (0-based index)
@@ -70,12 +72,12 @@ exports.availableSlots = async (req, res) => {
 
 exports.bookSlot = async (req, res) => {
     const { date } = req.body;
-    const dean = await User.findOne({ role: "dean" });
     const student = await User.findById(req.user.id);
+    const dean = await User.findOne({ role: "dean" });
 
     const deanCalendar = dean.bookedSlots;
-    const datekey = date.split("T")[0];
-    if (deanCalendar.includes(date)) {
+    const dateString = date.split(",")[0];
+    if (!checkIfDatePresent({date: dateString, slots: deanCalendar})) {
         return res.status(400).json({
             error: "Slot is already booked",
         });
@@ -84,8 +86,8 @@ exports.bookSlot = async (req, res) => {
     else{
         dean.bookedSlots.push({
             "date":date,
-            "student":student.name,
-            "studentId":student.universityID,
+            "name":student.name,
+            "university ID":student.universityID,
         });
         student.bookedSlots.push({"date":date});
         await dean.save();
@@ -95,3 +97,31 @@ exports.bookSlot = async (req, res) => {
         });
     }
 };
+
+
+exports.viewSessions = async (req, res) => {
+  const user = await User.findById(req.user.id);
+
+  if(!user) {
+    return res.status(400).json({
+      error: "Login to view your sessions",
+    });
+  }
+  for(let i=0; i<user.bookedSlots.length; i++) {
+    const slotdate = user.bookedSlots[i].date.split(",")[0];
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentDay = currentDate.getDate();
+    const date = new Date(slotdate);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    if(year < currentYear || (year === currentYear && month < currentMonth) || (year === currentYear && month === currentMonth && day < currentDay)) {
+      user.bookedSlots.splice(i, 1);
+      await user.save();
+    }
+  }
+  const userCalendar = user.bookedSlots;
+  return res.json(userCalendar);
+}

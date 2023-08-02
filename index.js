@@ -7,7 +7,7 @@ const app = express();
 
 //DATABASE
 const URI = process.env.MONGODB_URL;
-// console.log(URI);
+
 mongoose
   .connect(URI)
   .then(() => {

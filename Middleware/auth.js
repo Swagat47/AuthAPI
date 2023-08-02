@@ -11,8 +11,13 @@ exports.isAuthenticatedUser = async (req, res, next) => {
     }
     // bearerToken contains "bearer <token>", so we split it to get the token
     const bearer = bearerToken.split(" ")[1];
-    const decoded = jwt.verify(bearer, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id);
-    
+    try{
+        const decoded = jwt.verify(bearer, process.env.JWT_SECRET);
+        req.user = await User.findById(decoded.id);
+    }catch{
+        return res.status(401).json({
+            error: "Invalid Token",
+        });
+    }
     next();
 }
