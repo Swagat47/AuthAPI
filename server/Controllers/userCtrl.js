@@ -28,17 +28,16 @@ exports.loginUser = async (req, res) => {
     return res.status(400).json({ msg: "Not all fields have been entered." });
   }
   const user = await User.findOne({ universityID, password });
-  const payload = {
-    id: user._id,
-    name: user.name,
-    universityID: user.universityID,
-    role: user.role
-  };
   if (!user) {
     return res.status(400).json({ msg: "No account with this university ID has been registered." });
   }
-
   else {
+    const payload = {
+      id: user._id,
+      name: user.name,
+      universityID: user.universityID,
+      role: user.role
+    };
     jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" }, (err, token) => {
       if (err) throw err;
       return res.json({

@@ -1,15 +1,5 @@
 const User = require("../Models/userModel");
-
-function checkIfDatePresent({date, slots}) {
-  
-  for(let i=0; i<slots.length; i++) {
-    const slotdate = slots[i].date.split(",")[0];
-    if( slotdate === date) {
-      return false;
-    }
-  }
-  return true;
-}
+const Sessions = require("../Models/sessionsModel")
   
 exports.availableSlots = async (req, res) => {
   let { month, year } = req.body;
@@ -38,16 +28,10 @@ exports.availableSlots = async (req, res) => {
   // Find all Thursdays and Fridays
   const freeSlots = [];
 
-  //get dean's Calendar
-  const dean = await User.findOne({ role: "dean" });
-  // console.log(dean);
-  const deanCalendar = dean.bookedSlots;
-
   let startdate = 1;
   if (month === currentMonth && year === currentYear) {
     startdate = currentDate.getDate() + 1;
   }
-  // console.log(startdate, "startdate");
 
   for (let day = startdate; day <= lastDayOfMonth; day++) {
     const currentDate = new Date(year, month - 1, day);
@@ -55,14 +39,17 @@ exports.availableSlots = async (req, res) => {
     
     //currentdate format if 2021-05-20T00:00:00.000Z so we split it to get the date
     const dateString = currentDate.toISOString().split("T")[0];
+
     if (dayOfWeek === 5) {
+      const booked = await Sessions.findOne({date: `${dateString}, Thursday`})
       // Thursday (0-based index)
-      if (checkIfDatePresent({date: dateString, slots: deanCalendar}))
+      if (!booked)
         freeSlots.push(`${dateString}, Thursday`);
     } 
     else if (dayOfWeek === 6) {
       // Friday (0-based index)
-      if (checkIfDatePresent({date: dateString, slots: deanCalendar}))
+      const booked = await Sessions.findOne({date: `${dateString}, Friday`})
+      if (!booked)
         freeSlots.push(`${dateString}, Friday`);
     }
   }
@@ -73,25 +60,33 @@ exports.availableSlots = async (req, res) => {
 exports.bookSlot = async (req, res) => {
     const { date } = req.body;
     const student = await User.findById(req.user.id);
-    const dean = await User.findOne({ role: "dean" });
-
-    const deanCalendar = dean.bookedSlots;
-    const dateString = date.split(",")[0];
-    if (!checkIfDatePresent({date: dateString, slots: deanCalendar})) {
-        return res.status(400).json({
-            error: "Slot is already booked",
-        });
-    }
     
+    if (!student) {
+      return res.status(400).json({
+        error: "Login to book a slot",
+      });
+    }
+    const booked = await Sessions.findOne({date: date})
+    // const dateString = date.split(",")[0];
+    if(booked && booked.studentID === student.universityID){
+      return res.status(400).json({
+        error: "You already have a slot booked"
+      })
+    }
+    //this condition can occur as these transactions are not atomic,
+    //so if two students try to book the same slot at the same time, both will be able to book it
+    //this will not completely eliminate the problem but will reduce the chances of it
+    else if(booked && booked.studentID !== student.universityID){
+      return res.status(400).json({
+        error: "Slot already booked by another student"
+      })
+    }
     else{
-        dean.bookedSlots.push({
-            "date":date,
-            "name":student.name,
-            "university ID":student.universityID,
-        });
-        student.bookedSlots.push({"date":date});
-        await dean.save();
-        await student.save();
+        const slot = await Sessions.create({
+            "date": date,
+            "studentID" : student.universityID
+        })
+
         return res.json({
             message: "Slot booked successfully",
         });
@@ -107,21 +102,13 @@ exports.viewSessions = async (req, res) => {
       error: "Login to view your sessions",
     });
   }
-  for(let i=0; i<user.bookedSlots.length; i++) {
-    const slotdate = user.bookedSlots[i].date.split(",")[0];
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
-    const currentDay = currentDate.getDate();
-    const date = new Date(slotdate);
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    if(year < currentYear || (year === currentYear && month < currentMonth) || (year === currentYear && month === currentMonth && day < currentDay)) {
-      user.bookedSlots.splice(i, 1);
-      await user.save();
-    }
+  if(user.role === "student"){
+    const booked = await Sessions.findOne({studentID: user.universityID});
+    return res.json({"slot-date": booked.date});
   }
-  const userCalendar = user.bookedSlots;
-  return res.json(userCalendar);
+  else{
+    const bookedData = await Sessions.find();
+    return res.json(bookedData);
+  }
+  
 }

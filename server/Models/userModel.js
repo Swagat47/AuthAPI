@@ -17,14 +17,11 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: [true, "Please enter your password"],
         },
-        bookedSlots: {
-            type: Array,
-            default: [],
-        },
         role: {
             type: String,
             default: "student",
         },
+        
     },
     {
         timestamps: true,
